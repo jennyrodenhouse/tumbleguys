@@ -4,12 +4,17 @@ const gameState = {
     startTime: 0,
     checkpointsPassed: 0,
     totalCheckpoints: 3,
-    pointerLocked: false
+    pointerLocked: false,
+    currentRound: 1,
+    totalRounds: 3,
+    playerPosition: 1,
+    totalPlayers: 6
 };
 
 // Three.js variables
 let scene, camera, renderer;
 let player, playerBody;
+let cpuPlayers = [];
 let ground = [];
 let obstacles = [];
 let checkpoints = [];
@@ -24,11 +29,22 @@ let keys = {};
 let mouseMovement = { x: 0, y: 0 };
 let cameraRotation = { x: 0, y: 0 };
 
-// Constants
-const PLAYER_SIZE = 1;
-const PLAYER_SPEED = 8;
-const JUMP_FORCE = 12;
-const RESPAWN_POSITION = new THREE.Vector3(0, 2, 0);
+// Constants (EASIER SETTINGS)
+const PLAYER_SIZE = 0.6;
+const PLAYER_HEIGHT = 2;
+const PLAYER_SPEED = 6; // Reduced from 8
+const JUMP_FORCE = 10; // Reduced from 12
+const RESPAWN_POSITION = new THREE.Vector3(0, 3, 0);
+const CPU_COUNT = 5;
+
+// CPU player colors
+const CPU_COLORS = [
+    0x4d96ff, // Blue
+    0x6bcf7f, // Green
+    0xff8e53, // Orange
+    0x764ba2, // Purple
+    0xffd93d  // Yellow
+];
 
 // Initialize the game
 function init() {
@@ -36,6 +52,7 @@ function init() {
     setupPhysics();
     createWorld();
     createPlayer();
+    createCPUPlayers();
     setupControls();
     setupEventListeners();
     animate();
@@ -45,7 +62,7 @@ function init() {
 function setupThreeJS() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x87CEEB);
-    scene.fog = new THREE.Fog(0x87CEEB, 50, 200);
+    scene.fog = new THREE.Fog(0x87CEEB, 50, 250);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     camera.position.set(0, 5, 10);
@@ -59,7 +76,7 @@ function setupThreeJS() {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
     // Lighting
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
     scene.add(ambientLight);
 
     const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
@@ -67,76 +84,179 @@ function setupThreeJS() {
     directionalLight.castShadow = true;
     directionalLight.shadow.mapSize.width = 2048;
     directionalLight.shadow.mapSize.height = 2048;
-    directionalLight.shadow.camera.left = -50;
-    directionalLight.shadow.camera.right = 50;
-    directionalLight.shadow.camera.top = 50;
-    directionalLight.shadow.camera.bottom = -50;
+    directionalLight.shadow.camera.left = -80;
+    directionalLight.shadow.camera.right = 80;
+    directionalLight.shadow.camera.top = 80;
+    directionalLight.shadow.camera.bottom = -80;
     scene.add(directionalLight);
 }
 
 // Setup Cannon.js physics
 function setupPhysics() {
     world = new CANNON.World();
-    world.gravity.set(0, -30, 0);
+    world.gravity.set(0, -25, 0); // Reduced from -30 for easier gameplay
     world.broadphase = new CANNON.NaiveBroadphase();
     world.solver.iterations = 10;
 }
 
-// Create the obstacle course
+// Create the obstacle course (EASIER VERSION)
 function createWorld() {
-    // Starting platform
-    createPlatform(0, 0, 0, 15, 1, 15, 0x6bcf7f);
+    clearWorld();
 
-    // Path segment 1 - Narrow bridge
-    createPlatform(0, 0, -20, 5, 1, 10, 0xffd93d);
+    if (gameState.currentRound === 1) {
+        createRound1();
+    } else if (gameState.currentRound === 2) {
+        createRound2();
+    } else if (gameState.currentRound === 3) {
+        createRound3();
+    }
 
-    // Rotating platform 1
-    createRotatingPlatform(0, 0, -35, 10, 1, 10, 0xff6b6b);
+    // Walls to prevent falling off
+    createWall(-30, 10, -150, 1, 20, 300, 0x888888);
+    createWall(46, 10, -150, 1, 20, 300, 0x888888);
+}
 
-    // Jump section
-    createPlatform(-8, 0, -50, 6, 1, 6, 0x4d96ff);
-    createPlatform(0, 2, -58, 6, 1, 6, 0x4d96ff);
-    createPlatform(8, 0, -66, 6, 1, 6, 0x4d96ff);
+// Round 1 - Easy Course
+function createRound1() {
+    // Starting platform (BIGGER)
+    createPlatform(0, 0, 0, 25, 1, 25, 0x6bcf7f);
+
+    // Wide bridge
+    createPlatform(0, 0, -30, 12, 1, 20, 0xffd93d);
+
+    // Slow rotating platform
+    createRotatingPlatform(0, 0, -55, 15, 1, 15, 0xff6b6b, 0.003); // Much slower
+
+    // Easy jump section (BIGGER PLATFORMS, CLOSER)
+    createPlatform(-6, 0, -75, 10, 1, 10, 0x4d96ff);
+    createPlatform(2, 1, -88, 10, 1, 10, 0x4d96ff);
+    createPlatform(10, 0, -100, 10, 1, 10, 0x4d96ff);
 
     // Checkpoint 1
-    createCheckpoint(8, 2, -66, 1);
+    createCheckpoint(10, 3, -100, 1);
 
-    // Moving obstacles section
-    createPlatform(8, 0, -80, 15, 1, 20, 0x6bcf7f);
-    createMovingObstacle(8, 3, -80, 3, 3, 1, 0xff6b6b, 10);
-    createMovingObstacle(8, 3, -75, 3, 3, 1, 0xff6b6b, 10, Math.PI);
-
-    // Rotating windmill section
-    createPlatform(8, 0, -105, 12, 1, 12, 0xffd93d);
-    createSpinningObstacle(8, 4, -105, 12, 1, 2, 0xff6b6b);
+    // Wide platform with slow moving obstacles
+    createPlatform(10, 0, -125, 20, 1, 30, 0x6bcf7f);
+    createMovingObstacle(10, 3, -120, 2, 3, 1, 0xff6b6b, 6, 0); // Smaller range
 
     // Checkpoint 2
-    createCheckpoint(8, 2, -105, 2);
+    createCheckpoint(10, 3, -140, 2);
 
-    // Falling platforms section
-    createFallingPlatform(8, 0, -120, 5, 1, 5, 0xff8e53);
-    createFallingPlatform(8, 0, -128, 5, 1, 5, 0xff8e53);
-    createFallingPlatform(8, 0, -136, 5, 1, 5, 0xff8e53);
-
-    // Slalom section
-    createPlatform(8, 0, -150, 20, 1, 20, 0x6bcf7f);
-    createObstacle(5, 2, -145, 2, 4, 2, 0x764ba2);
-    createObstacle(11, 2, -150, 2, 4, 2, 0x764ba2);
-    createObstacle(5, 2, -155, 2, 4, 2, 0x764ba2);
+    // Final straight path
+    createPlatform(10, 0, -165, 20, 1, 25, 0xffd93d);
 
     // Checkpoint 3
-    createCheckpoint(8, 2, -160, 3);
+    createCheckpoint(10, 3, -175, 3);
 
-    // Final rotating platform challenge
-    createRotatingPlatform(8, 0, -175, 12, 1, 12, 0xff6b6b, 0.5);
+    // Finish platform (BIGGER)
+    createPlatform(10, 0, -195, 25, 1, 25, 0x6bcf7f);
+    createFinishLine(10, 3, -195);
+}
 
-    // Finish platform
-    createPlatform(8, 0, -190, 15, 1, 15, 0x6bcf7f);
-    createFinishLine(8, 2, -190);
+// Round 2 - Medium Course
+function createRound2() {
+    // Starting platform
+    createPlatform(0, 0, 0, 20, 1, 20, 0x6bcf7f);
 
-    // Walls to prevent falling off the world
-    createWall(-20, 5, -100, 1, 10, 200, 0x888888);
-    createWall(36, 5, -100, 1, 10, 200, 0x888888);
+    // Zigzag platforms
+    createPlatform(0, 0, -25, 10, 1, 15, 0xffd93d);
+    createPlatform(8, 0, -45, 10, 1, 15, 0x4d96ff);
+    createPlatform(0, 0, -65, 10, 1, 15, 0xffd93d);
+
+    // Checkpoint 1
+    createCheckpoint(0, 3, -65, 1);
+
+    // Rotating platform section
+    createRotatingPlatform(0, 0, -85, 14, 1, 14, 0xff6b6b, 0.005);
+
+    // Moving platforms
+    createPlatform(-8, 0, -105, 8, 1, 8, 0x6bcf7f);
+    createPlatform(8, 0, -105, 8, 1, 8, 0x6bcf7f);
+    createMovingObstacle(0, 3, -105, 3, 3, 1, 0xff6b6b, 8, 0);
+
+    // Checkpoint 2
+    createCheckpoint(8, 3, -105, 2);
+
+    // Falling platforms (LONGER DELAY)
+    createFallingPlatform(8, 0, -125, 8, 1, 8, 0xff8e53);
+    createFallingPlatform(8, 0, -137, 8, 1, 8, 0xff8e53);
+
+    // Final section
+    createPlatform(8, 0, -160, 18, 1, 25, 0x6bcf7f);
+
+    // Checkpoint 3
+    createCheckpoint(8, 3, -170, 3);
+
+    // Finish
+    createPlatform(8, 0, -190, 20, 1, 20, 0x6bcf7f);
+    createFinishLine(8, 3, -190);
+}
+
+// Round 3 - Challenge Course
+function createRound3() {
+    // Starting platform
+    createPlatform(0, 0, 0, 18, 1, 18, 0x6bcf7f);
+
+    // Mixed obstacles section
+    createPlatform(0, 0, -25, 14, 1, 15, 0xffd93d);
+    createRotatingPlatform(0, 0, -50, 12, 1, 12, 0xff6b6b, 0.008);
+
+    // Jump challenge
+    createPlatform(-8, 0, -70, 8, 1, 8, 0x4d96ff);
+    createPlatform(0, 2, -82, 8, 1, 8, 0x4d96ff);
+    createPlatform(8, 0, -94, 8, 1, 8, 0x4d96ff);
+
+    // Checkpoint 1
+    createCheckpoint(8, 3, -94, 1);
+
+    // Spinning windmill (SLOWER)
+    createPlatform(8, 0, -115, 14, 1, 14, 0xffd93d);
+    createSpinningObstacle(8, 4, -115, 10, 1, 2, 0xff6b6b, 0.012); // Slower
+
+    // Checkpoint 2
+    createCheckpoint(8, 3, -115, 2);
+
+    // Slalom with moving obstacles
+    createPlatform(8, 0, -145, 18, 1, 25, 0x6bcf7f);
+    createMovingObstacle(6, 3, -140, 2, 3, 1, 0xff6b6b, 5, 0);
+    createMovingObstacle(10, 3, -150, 2, 3, 1, 0xff6b6b, 5, Math.PI);
+
+    // Checkpoint 3
+    createCheckpoint(8, 3, -160, 3);
+
+    // Final challenge
+    createRotatingPlatform(8, 0, -180, 12, 1, 12, 0xff6b6b, 0.007);
+
+    // Finish
+    createPlatform(8, 0, -200, 20, 1, 20, 0x6bcf7f);
+    createFinishLine(8, 3, -200);
+}
+
+// Clear world for new round
+function clearWorld() {
+    // Remove old obstacles and checkpoints from scene
+    obstacles.forEach(obs => {
+        scene.remove(obs.mesh);
+        world.removeBody(obs.body);
+    });
+
+    ground.forEach(g => {
+        scene.remove(g.mesh);
+        world.removeBody(g.body);
+    });
+
+    checkpoints.forEach(cp => {
+        scene.remove(cp.mesh);
+    });
+
+    if (finishLine) {
+        scene.remove(finishLine.mesh);
+    }
+
+    obstacles = [];
+    ground = [];
+    checkpoints = [];
+    finishLine = null;
 }
 
 // Create a static platform
@@ -159,7 +279,7 @@ function createPlatform(x, y, z, width, height, depth, color) {
 }
 
 // Create a rotating platform
-function createRotatingPlatform(x, y, z, width, height, depth, color, speed = 0.01) {
+function createRotatingPlatform(x, y, z, width, height, depth, color, speed = 0.005) {
     const geometry = new THREE.BoxGeometry(width, height, depth);
     const material = new THREE.MeshStandardMaterial({ color: color });
     const mesh = new THREE.Mesh(geometry, material);
@@ -208,13 +328,13 @@ function createMovingObstacle(x, y, z, width, height, depth, color, range, offse
         type: 'moving',
         startX: x,
         range: range,
-        speed: 0.02,
+        speed: 0.015, // Slower
         offset: offset
     });
 }
 
 // Create a spinning obstacle (like a windmill arm)
-function createSpinningObstacle(x, y, z, width, height, depth, color) {
+function createSpinningObstacle(x, y, z, width, height, depth, color, speed = 0.015) {
     const geometry = new THREE.BoxGeometry(width, height, depth);
     const material = new THREE.MeshStandardMaterial({ color: color });
     const mesh = new THREE.Mesh(geometry, material);
@@ -236,7 +356,7 @@ function createSpinningObstacle(x, y, z, width, height, depth, color) {
         mesh,
         body,
         type: 'spinning',
-        speed: 0.02,
+        speed: speed,
         centerX: x,
         centerZ: z,
         radius: width / 2
@@ -294,7 +414,7 @@ function createWall(x, y, z, width, height, depth, color) {
     const material = new THREE.MeshStandardMaterial({
         color: color,
         transparent: true,
-        opacity: 0.3
+        opacity: 0.2
     });
     const mesh = new THREE.Mesh(geometry, material);
     mesh.position.set(x, y, z);
@@ -309,7 +429,7 @@ function createWall(x, y, z, width, height, depth, color) {
 
 // Create checkpoint
 function createCheckpoint(x, y, z, number) {
-    const geometry = new THREE.RingGeometry(2, 3, 32);
+    const geometry = new THREE.RingGeometry(2.5, 3.5, 32);
     const material = new THREE.MeshStandardMaterial({
         color: 0xffd93d,
         side: THREE.DoubleSide,
@@ -331,7 +451,7 @@ function createCheckpoint(x, y, z, number) {
 
 // Create finish line
 function createFinishLine(x, y, z) {
-    const geometry = new THREE.CylinderGeometry(4, 4, 0.5, 32);
+    const geometry = new THREE.CylinderGeometry(5, 5, 0.5, 32);
     const material = new THREE.MeshStandardMaterial({
         color: 0x6bcf7f,
         emissive: 0x6bcf7f,
@@ -349,38 +469,209 @@ function createFinishLine(x, y, z) {
     };
 }
 
-// Create player
+// Create banana-shaped player (humanoid)
 function createPlayer() {
-    const geometry = new THREE.SphereGeometry(PLAYER_SIZE, 32, 32);
-    const material = new THREE.MeshStandardMaterial({
-        color: 0xff6b6b,
+    // Create a group for the banana character
+    const bananaGroup = new THREE.Group();
+
+    // Body (main banana shape - capsule-like)
+    const bodyGeometry = new THREE.CapsuleGeometry(PLAYER_SIZE, PLAYER_HEIGHT - PLAYER_SIZE * 2, 8, 16);
+    const bodyMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFE135, // Bright banana yellow
+        metalness: 0.2,
+        roughness: 0.8
+    });
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    body.castShadow = true;
+    body.receiveShadow = true;
+    bananaGroup.add(body);
+
+    // Eyes (sunglasses effect)
+    const eyeGeometry = new THREE.SphereGeometry(0.15, 16, 16);
+    const eyeMaterial = new THREE.MeshStandardMaterial({
+        color: 0x000000,
+        metalness: 0.8,
+        roughness: 0.2
+    });
+
+    const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    leftEye.position.set(-0.25, 0.5, 0.5);
+    bananaGroup.add(leftEye);
+
+    const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+    rightEye.position.set(0.25, 0.5, 0.5);
+    bananaGroup.add(rightEye);
+
+    // Arms (simple cylinders)
+    const armGeometry = new THREE.CapsuleGeometry(0.15, 0.6, 4, 8);
+    const armMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFE135,
+        metalness: 0.2,
+        roughness: 0.8
+    });
+
+    const leftArm = new THREE.Mesh(armGeometry, armMaterial);
+    leftArm.position.set(-0.7, 0, 0);
+    leftArm.rotation.z = Math.PI / 6;
+    leftArm.castShadow = true;
+    bananaGroup.add(leftArm);
+
+    const rightArm = new THREE.Mesh(armGeometry, armMaterial);
+    rightArm.position.set(0.7, 0, 0);
+    rightArm.rotation.z = -Math.PI / 6;
+    rightArm.castShadow = true;
+    bananaGroup.add(rightArm);
+
+    // Legs (feet)
+    const footGeometry = new THREE.CapsuleGeometry(0.2, 0.4, 4, 8);
+    const footMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFF3030, // Red shoes
         metalness: 0.3,
         roughness: 0.7
     });
-    player = new THREE.Mesh(geometry, material);
-    player.castShadow = true;
-    player.receiveShadow = true;
+
+    const leftFoot = new THREE.Mesh(footGeometry, footMaterial);
+    leftFoot.position.set(-0.3, -PLAYER_HEIGHT/2 + 0.2, 0.2);
+    leftFoot.rotation.x = Math.PI / 2;
+    leftFoot.castShadow = true;
+    bananaGroup.add(leftFoot);
+
+    const rightFoot = new THREE.Mesh(footGeometry, footMaterial);
+    rightFoot.position.set(0.3, -PLAYER_HEIGHT/2 + 0.2, 0.2);
+    rightFoot.rotation.x = Math.PI / 2;
+    rightFoot.castShadow = true;
+    bananaGroup.add(rightFoot);
+
+    player = bananaGroup;
     scene.add(player);
 
+    // Physics body (capsule shape for better movement)
     const shape = new CANNON.Sphere(PLAYER_SIZE);
     playerBody = new CANNON.Body({
         mass: 5,
         linearDamping: 0.9,
-        angularDamping: 0.9
+        angularDamping: 0.99,
+        fixedRotation: true // Prevent the player from tipping over
     });
     playerBody.addShape(shape);
     playerBody.position.copy(RESPAWN_POSITION);
     world.addBody(playerBody);
 
-    // Material for player-ground interaction
+    // Material for better physics interaction
     const playerMaterial = new CANNON.Material();
     const groundMaterial = new CANNON.Material();
     const playerGroundContact = new CANNON.ContactMaterial(
         playerMaterial,
         groundMaterial,
-        { friction: 0.3, restitution: 0.3 }
+        { friction: 0.4, restitution: 0.1 }
     );
     world.addContactMaterial(playerGroundContact);
+}
+
+// Create CPU players
+function createCPUPlayers() {
+    for (let i = 0; i < CPU_COUNT; i++) {
+        const cpuGroup = new THREE.Group();
+
+        // Body
+        const bodyGeometry = new THREE.CapsuleGeometry(PLAYER_SIZE * 0.9, PLAYER_HEIGHT - PLAYER_SIZE * 2, 8, 16);
+        const bodyMaterial = new THREE.MeshStandardMaterial({
+            color: CPU_COLORS[i],
+            metalness: 0.2,
+            roughness: 0.8
+        });
+        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+        body.castShadow = true;
+        body.receiveShadow = true;
+        cpuGroup.add(body);
+
+        // Simple face
+        const eyeGeometry = new THREE.SphereGeometry(0.12, 16, 16);
+        const eyeMaterial = new THREE.MeshStandardMaterial({
+            color: 0x000000,
+            metalness: 0.6,
+            roughness: 0.3
+        });
+
+        const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        leftEye.position.set(-0.2, 0.4, 0.5);
+        cpuGroup.add(leftEye);
+
+        const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+        rightEye.position.set(0.2, 0.4, 0.5);
+        cpuGroup.add(rightEye);
+
+        scene.add(cpuGroup);
+
+        // Physics
+        const cpuShape = new CANNON.Sphere(PLAYER_SIZE * 0.9);
+        const cpuBody = new CANNON.Body({
+            mass: 5,
+            linearDamping: 0.9,
+            angularDamping: 0.99,
+            fixedRotation: true
+        });
+        cpuBody.addShape(cpuShape);
+
+        // Spread CPU players at start
+        const spreadX = (i - 2) * 3;
+        const spreadZ = (i % 2) * 3;
+        cpuBody.position.set(spreadX, 3, spreadZ);
+        world.addBody(cpuBody);
+
+        cpuPlayers.push({
+            mesh: cpuGroup,
+            body: cpuBody,
+            color: CPU_COLORS[i],
+            targetZ: -200, // Move towards finish
+            speed: 3 + Math.random() * 2, // Random speed
+            jumpTimer: Math.random() * 3,
+            finished: false
+        });
+    }
+}
+
+// Update CPU AI
+function updateCPUPlayers() {
+    cpuPlayers.forEach((cpu, index) => {
+        if (cpu.finished) return;
+
+        // Simple AI: move forward with some variation
+        const moveSpeed = cpu.speed;
+
+        // Move towards finish line
+        if (cpu.body.position.z > cpu.targetZ) {
+            cpu.body.velocity.z = -moveSpeed;
+        }
+
+        // Random sideways movement to avoid obstacles
+        const sideMove = Math.sin(Date.now() * 0.001 + index) * 0.5;
+        cpu.body.velocity.x = sideMove;
+
+        // Random jumping
+        cpu.jumpTimer -= timeStep;
+        if (cpu.jumpTimer <= 0) {
+            if (Math.abs(cpu.body.velocity.y) < 0.5) {
+                cpu.body.velocity.y = 8;
+            }
+            cpu.jumpTimer = 2 + Math.random() * 3;
+        }
+
+        // Respawn if fallen
+        if (cpu.body.position.y < -20) {
+            cpu.body.position.set((index - 2) * 3, 3, 0);
+            cpu.body.velocity.set(0, 0, 0);
+        }
+
+        // Check if finished
+        if (finishLine && cpu.body.position.distanceTo(finishLine.position) < 6) {
+            cpu.finished = true;
+        }
+
+        // Sync mesh with physics
+        cpu.mesh.position.copy(cpu.body.position);
+        cpu.mesh.quaternion.copy(cpu.body.quaternion);
+    });
 }
 
 // Setup controls
@@ -436,18 +727,58 @@ function startGame() {
     gameState.isPlaying = true;
     gameState.startTime = Date.now();
     gameState.checkpointsPassed = 0;
+    gameState.currentRound = 1;
 
     // Reset checkpoints
     checkpoints.forEach(cp => cp.passed = false);
 
+    // Reset CPU players
+    cpuPlayers.forEach((cpu, index) => {
+        const spreadX = (index - 2) * 3;
+        const spreadZ = (index % 2) * 3;
+        cpu.body.position.set(spreadX, 3, spreadZ);
+        cpu.body.velocity.set(0, 0, 0);
+        cpu.finished = false;
+    });
+
     updateCheckpointDisplay();
+    updateRoundDisplay();
 }
 
 // Restart game
 function restartGame() {
     document.getElementById('win-screen').classList.add('hidden');
     respawnPlayer();
+    createWorld(); // Recreate current round
     startGame();
+}
+
+// Next round
+function nextRound() {
+    gameState.currentRound++;
+    if (gameState.currentRound > gameState.totalRounds) {
+        winGame();
+        return;
+    }
+
+    gameState.checkpointsPassed = 0;
+    respawnPlayer();
+    createWorld();
+
+    // Reset CPU players
+    cpuPlayers.forEach((cpu, index) => {
+        const spreadX = (index - 2) * 3;
+        const spreadZ = (index % 2) * 3;
+        cpu.body.position.set(spreadX, 3, spreadZ);
+        cpu.body.velocity.set(0, 0, 0);
+        cpu.finished = false;
+    });
+
+    // Reset checkpoints
+    checkpoints.forEach(cp => cp.passed = false);
+
+    updateCheckpointDisplay();
+    updateRoundDisplay();
 }
 
 // Respawn player
@@ -476,6 +807,12 @@ function updateCheckpointDisplay() {
         `${gameState.checkpointsPassed}/${gameState.totalCheckpoints}`;
 }
 
+// Update round display
+function updateRoundDisplay() {
+    document.getElementById('objective').textContent =
+        `Round ${gameState.currentRound}/${gameState.totalRounds} - Reach the finish!`;
+}
+
 // Check checkpoints
 function checkCheckpoints() {
     const playerPos = playerBody.position;
@@ -488,7 +825,7 @@ function checkCheckpoints() {
                 Math.pow(playerPos.z - checkpoint.position.z, 2)
             );
 
-            if (distance < 3) {
+            if (distance < 4) {
                 checkpoint.passed = true;
                 gameState.checkpointsPassed++;
                 updateCheckpointDisplay();
@@ -512,8 +849,16 @@ function checkWinCondition() {
         Math.pow(playerPos.z - finishPos.z, 2)
     );
 
-    if (distance < 4) {
-        winGame();
+    if (distance < 6) {
+        if (gameState.currentRound < gameState.totalRounds) {
+            // Go to next round
+            setTimeout(() => {
+                nextRound();
+            }, 1000);
+        } else {
+            // Win the game
+            winGame();
+        }
     }
 }
 
@@ -527,7 +872,7 @@ function winGame() {
     const minutes = Math.floor(elapsed / 60000);
     const seconds = Math.floor((elapsed % 60000) / 1000);
     document.getElementById('final-time').textContent =
-        `Time: ${minutes}:${seconds.toString().padStart(2, '0')}`;
+        `Time: ${minutes}:${seconds.toString().padStart(2, '0')} - All ${gameState.totalRounds} Rounds Complete!`;
 
     if (document.pointerLockElement) {
         document.exitPointerLock();
@@ -620,23 +965,41 @@ function updateObstacles() {
             obstacle.mesh.quaternion.copy(obstacle.body.quaternion);
         }
         else if (obstacle.type === 'falling') {
-            // Check if player is on this platform
-            const playerPos = playerBody.position;
+            // Check if player or CPU is on this platform
             const platformPos = obstacle.body.position;
-            const distance = Math.sqrt(
+            let someonOnPlatform = false;
+
+            // Check player
+            const playerPos = playerBody.position;
+            let distance = Math.sqrt(
                 Math.pow(playerPos.x - platformPos.x, 2) +
                 Math.pow(playerPos.z - platformPos.z, 2)
             );
+            if (distance < 5 && Math.abs(playerPos.y - platformPos.y) < 2) {
+                someonOnPlatform = true;
+            }
 
-            if (distance < 3 && Math.abs(playerPos.y - platformPos.y) < 2 && !obstacle.falling) {
+            // Check CPUs
+            cpuPlayers.forEach(cpu => {
+                const cpuPos = cpu.body.position;
+                distance = Math.sqrt(
+                    Math.pow(cpuPos.x - platformPos.x, 2) +
+                    Math.pow(cpuPos.z - platformPos.z, 2)
+                );
+                if (distance < 5 && Math.abs(cpuPos.y - platformPos.y) < 2) {
+                    someonOnPlatform = true;
+                }
+            });
+
+            if (someonOnPlatform && !obstacle.falling) {
                 obstacle.falling = true;
                 obstacle.fallTimer = Date.now();
             }
 
             if (obstacle.falling) {
                 const elapsed = Date.now() - obstacle.fallTimer;
-                if (elapsed > 500) { // Fall after 0.5 seconds
-                    obstacle.body.position.y -= 0.1;
+                if (elapsed > 1200) { // LONGER DELAY - fall after 1.2 seconds
+                    obstacle.body.position.y -= 0.08; // Slower fall
                     obstacle.mesh.position.copy(obstacle.body.position);
 
                     // Reset after falling far enough
@@ -647,7 +1010,7 @@ function updateObstacles() {
                     }
                 } else {
                     // Shake effect before falling
-                    obstacle.mesh.position.y = obstacle.originalY + Math.sin(elapsed * 0.05) * 0.1;
+                    obstacle.mesh.position.y = obstacle.originalY + Math.sin(elapsed * 0.03) * 0.15;
                 }
             }
         }
@@ -659,8 +1022,8 @@ function updateCamera() {
     const playerPos = playerBody.position;
 
     // Third-person camera
-    const cameraDistance = 12;
-    const cameraHeight = 5;
+    const cameraDistance = 15;
+    const cameraHeight = 6;
 
     const targetX = playerPos.x + Math.sin(cameraRotation.x) * cameraDistance;
     const targetY = playerPos.y + cameraHeight + Math.sin(cameraRotation.y) * cameraDistance;
@@ -670,7 +1033,7 @@ function updateCamera() {
     camera.position.y = targetY;
     camera.position.z = targetZ;
 
-    camera.lookAt(playerPos.x, playerPos.y + 2, playerPos.z);
+    camera.lookAt(playerPos.x, playerPos.y + 1, playerPos.z);
 }
 
 // Window resize
@@ -690,12 +1053,19 @@ function animate() {
     // Update player
     updatePlayer();
 
+    // Update CPU players
+    updateCPUPlayers();
+
     // Update obstacles
     updateObstacles();
 
     // Sync player mesh with physics body
     player.position.copy(playerBody.position);
-    player.quaternion.copy(playerBody.quaternion);
+
+    // Keep banana upright
+    player.rotation.y = -cameraRotation.x;
+    player.rotation.x = 0;
+    player.rotation.z = 0;
 
     // Update camera
     updateCamera();
