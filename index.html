@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tumble Guys - 3D Obstacle Course Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- UI Overlay -->
+        <div id="ui-overlay">
+            <div id="start-screen" class="screen">
+                <h1>🎮 TUMBLE GUYS</h1>
+                <p class="subtitle">A 3D Obstacle Course Adventure</p>
+                <button id="start-btn" class="game-btn">START GAME</button>
+                <div class="controls-info">
+                    <h3>Controls</h3>
+                    <p>🎯 WASD or Arrow Keys - Move</p>
+                    <p>🚀 SPACE - Jump</p>
+                    <p>🖱️ Mouse - Look Around</p>
+                    <p>🔄 R - Respawn</p>
+                </div>
+            </div>
+
+            <div id="game-hud" class="screen hidden">
+                <div class="hud-top">
+                    <div class="hud-item">
+                        <span class="hud-label">Time:</span>
+                        <span id="timer">0:00</span>
+                    </div>
+                    <div class="hud-item">
+                        <span class="hud-label">Checkpoints:</span>
+                        <span id="checkpoints">0/3</span>
+                    </div>
+                </div>
+                <div id="objective">Reach the finish line!</div>
+            </div>
+
+            <div id="win-screen" class="screen hidden">
+                <h1>🏆 YOU WIN!</h1>
+                <p class="subtitle">Congratulations!</p>
+                <div id="final-time" class="stat">Time: 0:00</div>
+                <button id="restart-btn" class="game-btn">PLAY AGAIN</button>
+            </div>
+
+            <div id="instructions" class="hidden">
+                <p>Click to lock pointer and start playing!</p>
+            </div>
+        </div>
+
+        <!-- 3D Canvas -->
+        <canvas id="game-canvas"></canvas>
+    </div>
+
+    <!-- Loading Three.js and Cannon.js from CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/cannon@0.6.2/build/cannon.min.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
