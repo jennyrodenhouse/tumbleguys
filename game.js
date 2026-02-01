@@ -56,6 +56,18 @@ function init() {
     setupControls();
     setupEventListeners();
     animate();
+
+    // Auto-start the game immediately - no start button needed!
+    setTimeout(() => {
+        console.log('Auto-starting game...');
+        gameState.isPlaying = true;
+        gameState.startTime = Date.now();
+        gameState.checkpointsPassed = 0;
+        gameState.currentRound = 1;
+        updateCheckpointDisplay();
+        updateRoundDisplay();
+        console.log('Game started automatically!');
+    }, 100);
 }
 
 // Setup Three.js
