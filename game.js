@@ -486,8 +486,8 @@ function createPlayer() {
     // Create a group for the banana character
     const bananaGroup = new THREE.Group();
 
-    // Body (main banana shape - capsule-like)
-    const bodyGeometry = new THREE.CapsuleGeometry(PLAYER_SIZE, PLAYER_HEIGHT - PLAYER_SIZE * 2, 8, 16);
+    // Body (main banana shape - cylinder with rounded top/bottom using spheres)
+    const bodyGeometry = new THREE.CylinderGeometry(PLAYER_SIZE * 0.8, PLAYER_SIZE * 0.9, PLAYER_HEIGHT - 0.5, 16);
     const bodyMaterial = new THREE.MeshStandardMaterial({
         color: 0xFFE135, // Bright banana yellow
         metalness: 0.2,
@@ -498,6 +498,14 @@ function createPlayer() {
     body.receiveShadow = true;
     bananaGroup.add(body);
 
+    // Head (rounded top)
+    const headGeometry = new THREE.SphereGeometry(PLAYER_SIZE * 0.7, 16, 16);
+    const head = new THREE.Mesh(headGeometry, bodyMaterial);
+    head.position.y = PLAYER_HEIGHT / 2 - 0.2;
+    head.castShadow = true;
+    head.receiveShadow = true;
+    bananaGroup.add(head);
+
     // Eyes (sunglasses effect)
     const eyeGeometry = new THREE.SphereGeometry(0.15, 16, 16);
     const eyeMaterial = new THREE.MeshStandardMaterial({
@@ -507,15 +515,15 @@ function createPlayer() {
     });
 
     const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-    leftEye.position.set(-0.25, 0.5, 0.5);
+    leftEye.position.set(-0.25, PLAYER_HEIGHT / 2 - 0.1, 0.5);
     bananaGroup.add(leftEye);
 
     const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-    rightEye.position.set(0.25, 0.5, 0.5);
+    rightEye.position.set(0.25, PLAYER_HEIGHT / 2 - 0.1, 0.5);
     bananaGroup.add(rightEye);
 
-    // Arms (simple cylinders)
-    const armGeometry = new THREE.CapsuleGeometry(0.15, 0.6, 4, 8);
+    // Arms (cylinders)
+    const armGeometry = new THREE.CylinderGeometry(0.12, 0.12, 0.7, 8);
     const armMaterial = new THREE.MeshStandardMaterial({
         color: 0xFFE135,
         metalness: 0.2,
@@ -523,19 +531,55 @@ function createPlayer() {
     });
 
     const leftArm = new THREE.Mesh(armGeometry, armMaterial);
-    leftArm.position.set(-0.7, 0, 0);
+    leftArm.position.set(-0.7, 0.2, 0);
     leftArm.rotation.z = Math.PI / 6;
     leftArm.castShadow = true;
     bananaGroup.add(leftArm);
 
     const rightArm = new THREE.Mesh(armGeometry, armMaterial);
-    rightArm.position.set(0.7, 0, 0);
+    rightArm.position.set(0.7, 0.2, 0);
     rightArm.rotation.z = -Math.PI / 6;
     rightArm.castShadow = true;
     bananaGroup.add(rightArm);
 
-    // Legs (feet)
-    const footGeometry = new THREE.CapsuleGeometry(0.2, 0.4, 4, 8);
+    // Hands (small spheres)
+    const handGeometry = new THREE.SphereGeometry(0.15, 8, 8);
+    const handMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFFFFF, // White gloves
+        metalness: 0.1,
+        roughness: 0.9
+    });
+
+    const leftHand = new THREE.Mesh(handGeometry, handMaterial);
+    leftHand.position.set(-0.85, -0.15, 0);
+    leftHand.castShadow = true;
+    bananaGroup.add(leftHand);
+
+    const rightHand = new THREE.Mesh(handGeometry, handMaterial);
+    rightHand.position.set(0.85, -0.15, 0);
+    rightHand.castShadow = true;
+    bananaGroup.add(rightHand);
+
+    // Legs (cylinders)
+    const legGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.5, 8);
+    const legMaterial = new THREE.MeshStandardMaterial({
+        color: 0xFFE135,
+        metalness: 0.2,
+        roughness: 0.8
+    });
+
+    const leftLeg = new THREE.Mesh(legGeometry, legMaterial);
+    leftLeg.position.set(-0.25, -PLAYER_HEIGHT/2 - 0.2, 0);
+    leftLeg.castShadow = true;
+    bananaGroup.add(leftLeg);
+
+    const rightLeg = new THREE.Mesh(legGeometry, legMaterial);
+    rightLeg.position.set(0.25, -PLAYER_HEIGHT/2 - 0.2, 0);
+    rightLeg.castShadow = true;
+    bananaGroup.add(rightLeg);
+
+    // Feet (red shoes)
+    const footGeometry = new THREE.BoxGeometry(0.2, 0.15, 0.35);
     const footMaterial = new THREE.MeshStandardMaterial({
         color: 0xFF3030, // Red shoes
         metalness: 0.3,
@@ -543,14 +587,12 @@ function createPlayer() {
     });
 
     const leftFoot = new THREE.Mesh(footGeometry, footMaterial);
-    leftFoot.position.set(-0.3, -PLAYER_HEIGHT/2 + 0.2, 0.2);
-    leftFoot.rotation.x = Math.PI / 2;
+    leftFoot.position.set(-0.25, -PLAYER_HEIGHT/2 - 0.45, 0.05);
     leftFoot.castShadow = true;
     bananaGroup.add(leftFoot);
 
     const rightFoot = new THREE.Mesh(footGeometry, footMaterial);
-    rightFoot.position.set(0.3, -PLAYER_HEIGHT/2 + 0.2, 0.2);
-    rightFoot.rotation.x = Math.PI / 2;
+    rightFoot.position.set(0.25, -PLAYER_HEIGHT/2 - 0.45, 0.05);
     rightFoot.castShadow = true;
     bananaGroup.add(rightFoot);
 
@@ -585,8 +627,8 @@ function createCPUPlayers() {
     for (let i = 0; i < CPU_COUNT; i++) {
         const cpuGroup = new THREE.Group();
 
-        // Body
-        const bodyGeometry = new THREE.CapsuleGeometry(PLAYER_SIZE * 0.9, PLAYER_HEIGHT - PLAYER_SIZE * 2, 8, 16);
+        // Body (cylinder)
+        const bodyGeometry = new THREE.CylinderGeometry(PLAYER_SIZE * 0.7, PLAYER_SIZE * 0.8, PLAYER_HEIGHT - 0.5, 16);
         const bodyMaterial = new THREE.MeshStandardMaterial({
             color: CPU_COLORS[i],
             metalness: 0.2,
@@ -597,6 +639,14 @@ function createCPUPlayers() {
         body.receiveShadow = true;
         cpuGroup.add(body);
 
+        // Head (sphere)
+        const headGeometry = new THREE.SphereGeometry(PLAYER_SIZE * 0.6, 16, 16);
+        const head = new THREE.Mesh(headGeometry, bodyMaterial);
+        head.position.y = PLAYER_HEIGHT / 2 - 0.2;
+        head.castShadow = true;
+        head.receiveShadow = true;
+        cpuGroup.add(head);
+
         // Simple face
         const eyeGeometry = new THREE.SphereGeometry(0.12, 16, 16);
         const eyeMaterial = new THREE.MeshStandardMaterial({
@@ -606,12 +656,32 @@ function createCPUPlayers() {
         });
 
         const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        leftEye.position.set(-0.2, 0.4, 0.5);
+        leftEye.position.set(-0.2, PLAYER_HEIGHT / 2 - 0.1, 0.45);
         cpuGroup.add(leftEye);
 
         const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
-        rightEye.position.set(0.2, 0.4, 0.5);
+        rightEye.position.set(0.2, PLAYER_HEIGHT / 2 - 0.1, 0.45);
         cpuGroup.add(rightEye);
+
+        // Arms
+        const armGeometry = new THREE.CylinderGeometry(0.1, 0.1, 0.6, 8);
+        const armMaterial = new THREE.MeshStandardMaterial({
+            color: CPU_COLORS[i],
+            metalness: 0.2,
+            roughness: 0.8
+        });
+
+        const leftArm = new THREE.Mesh(armGeometry, armMaterial);
+        leftArm.position.set(-0.6, 0.2, 0);
+        leftArm.rotation.z = Math.PI / 6;
+        leftArm.castShadow = true;
+        cpuGroup.add(leftArm);
+
+        const rightArm = new THREE.Mesh(armGeometry, armMaterial);
+        rightArm.position.set(0.6, 0.2, 0);
+        rightArm.rotation.z = -Math.PI / 6;
+        rightArm.castShadow = true;
+        cpuGroup.add(rightArm);
 
         scene.add(cpuGroup);
 
