@@ -715,15 +715,39 @@ function setupControls() {
 
 // Setup event listeners
 function setupEventListeners() {
-    document.getElementById('start-btn').addEventListener('click', startGame);
-    document.getElementById('restart-btn').addEventListener('click', restartGame);
+    const startBtn = document.getElementById('start-btn');
+    const restartBtn = document.getElementById('restart-btn');
+
+    if (startBtn) {
+        startBtn.addEventListener('click', startGame);
+        console.log('Start button listener attached');
+    } else {
+        console.error('Start button not found!');
+    }
+
+    if (restartBtn) {
+        restartBtn.addEventListener('click', restartGame);
+    }
+
     window.addEventListener('resize', onWindowResize);
 }
 
 // Start game
 function startGame() {
-    document.getElementById('start-screen').classList.add('hidden');
-    document.getElementById('game-hud').classList.remove('hidden');
+    console.log('startGame called');
+
+    const startScreen = document.getElementById('start-screen');
+    const gameHud = document.getElementById('game-hud');
+
+    if (startScreen) {
+        startScreen.classList.add('hidden');
+        console.log('Start screen hidden');
+    }
+    if (gameHud) {
+        gameHud.classList.remove('hidden');
+        console.log('Game HUD shown');
+    }
+
     gameState.isPlaying = true;
     gameState.startTime = Date.now();
     gameState.checkpointsPassed = 0;
@@ -743,6 +767,8 @@ function startGame() {
 
     updateCheckpointDisplay();
     updateRoundDisplay();
+
+    console.log('Game started, round', gameState.currentRound);
 }
 
 // Restart game
